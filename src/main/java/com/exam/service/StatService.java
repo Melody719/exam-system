@@ -39,31 +39,6 @@ public class StatService {
         return Tx.call(() -> sheetDao.questionAccuracy(paperId));
     }
 
-    /** 导出 CSV（带 BOM，Excel 直接打开不乱码） */
-    public String csv(long paperId) {
-        return Tx.call(() -> {
-            StringBuilder sb = new StringBuilder("\ufeff");
-            sb.append("学号,姓名,总分,客观分,主观分,是否超时\n");
-            for (Map<String, Object> r : sheetDao.studentScores(paperId)) {
-                sb.append(r.get("student_id")).append(',')
-                        .append(r.get("real_name")).append(',')
-                        .append(r.get("total_score")).append(',')
-                        .append(r.get("objective_score")).append(',')
-                        .append(r.get("subjective_score")).append(',')
-                        .append(((Number) r.get("overtime")).intValue() == 1 ? "是" : "否")
-                        .append('\n');
-            }
-            sb.append("\n题目,作答人数,答对人数,正确率\n");
-            for (Map<String, Object> r : sheetDao.questionAccuracy(paperId)) {
-                sb.append('"').append(r.get("content")).append("\",")
-                        .append(r.get("total")).append(',')
-                        .append(r.get("correct")).append(',')
-                        .append(r.get("rate")).append("%\n");
-            }
-            return sb.toString();
-        });
-    }
-
     public List<Map<String, Object>> sheetList(long paperId) {
         List<Map<String, Object>> list = new ArrayList<>();
         Tx.exec(() -> sheetDao.listByPaper(paperId).forEach(s -> {

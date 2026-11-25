@@ -1,4 +1,4 @@
--- 演示数据：1 个教师、1 个学生、1 门课、5 道题
+-- 演示数据：1 个教师、1 个学生、1 门课、4 道客观题（25 分）
 -- 密码均为 123456，salt/密文与 AuthService.hash 一致（salt+pwd+salt 的 SHA-256）
 -- 本脚本幂等：先清空业务数据再灌演示数据，可以随时重跑
 SET NAMES utf8mb4;
@@ -6,7 +6,6 @@ SET NAMES utf8mb4;
 USE exam_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE op_log;
 TRUNCATE TABLE answer_detail;
 TRUNCATE TABLE answer_sheet;
 TRUNCATE TABLE paper_question;
@@ -27,8 +26,7 @@ INSERT INTO question(course_id, type, difficulty, knowledge_point, content, answ
 (1, 1, 1, '基础语法', '以下哪个是 Java 的合法标识符？', 'B', 5),
 (1, 1, 2, '集合', 'ArrayList 的底层数据结构是？', 'A', 5),
 (1, 2, 2, '集合', '以下属于线程安全的集合有？', 'A,C', 10),
-(1, 3, 1, '基础语法', 'Java 支持多继承。', 'B', 5),
-(1, 4, 3, '并发', '简述 synchronized 与 ReentrantLock 的区别。', '参考：可重入、公平性、条件变量、中断响应', 15);
+(1, 3, 1, '基础语法', 'Java 支持多继承。', 'B', 5);
 
 INSERT INTO question_option(question_id, opt_key, content) VALUES
 (1, 'A', '2abc'), (1, 'B', '_name'), (1, 'C', 'class'), (1, 'D', 'a-b'),

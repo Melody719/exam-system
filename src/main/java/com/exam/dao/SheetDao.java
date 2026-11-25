@@ -5,6 +5,7 @@ import com.exam.entity.AnswerSheet;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SheetDao extends BaseDao<AnswerSheet> {
 
@@ -35,15 +36,15 @@ public class SheetDao extends BaseDao<AnswerSheet> {
                 + "WHERE id = ? AND status = 1", submitTime, overtime, sheetId);
     }
 
-    public int updateScore(long sheetId, int objective, int subjective, int total, int status) {
-        return update("UPDATE answer_sheet SET objective_score = ?, subjective_score = ?, "
-                + "total_score = ?, status = ? WHERE id = ?", objective, subjective, total, status, sheetId);
+    /** 判分结果落库：全客观题，交卷即出终分 */
+    public int finish(long sheetId, int totalScore) {
+        return update("UPDATE answer_sheet SET total_score = ?, status = 2 WHERE id = ?", totalScore, sheetId);
     }
 
     /** 定时收卷扫描：到点还没交的 */
     public List<Long> listExpiredIds(LocalDateTime now) {
         return query("SELECT * FROM answer_sheet WHERE status = 1 AND deadline < ? LIMIT 200", now)
-                .stream().map(AnswerSheet::getId).collect(java.util.stream.Collectors.toList());
+                .stream().map(AnswerSheet::getId).collect(Collectors.toList());
     }
 
     public List<AnswerSheet> listByPaper(long paperId) {
@@ -54,14 +55,7 @@ public class SheetDao extends BaseDao<AnswerSheet> {
         return query("SELECT * FROM answer_sheet WHERE student_id = ? ORDER BY start_time DESC", studentId);
     }
 
-    /** 待批改：有主观题且已交卷 */
-    public List<Map<String, Object>> listPendingGrade(long paperId) {
-        return queryMaps("SELECT s.id sheet_id, s.student_id, u.real_name, s.submit_time "
-                + "FROM answer_sheet s JOIN sys_user u ON u.id = s.student_id "
-                + "WHERE s.paper_id = ? AND s.status = 2 ORDER BY s.submit_time", paperId);
-    }
-
-    /** 班级概览：一场考试只算已交卷/已批改的答卷 */
+    /** 班级概览：一场考试只算已交卷的答卷 */
     public List<Map<String, Object>> overview(long paperId, int passLine) {
         return queryMaps("SELECT COUNT(*) sheet_count, ROUND(IFNULL(AVG(total_score),0), 1) avg_score, "
                 + "IFNULL(MAX(total_score),0) max_score, IFNULL(MIN(total_score),0) min_score, "
@@ -78,13 +72,5 @@ public class SheetDao extends BaseDao<AnswerSheet> {
                 + "JOIN answer_sheet s ON s.id = d.sheet_id "
                 + "JOIN question q ON q.id = d.question_id "
                 + "WHERE s.paper_id = ? AND s.status >= 2 GROUP BY q.id, q.content ORDER BY q.id", paperId);
-    }
-
-    /** 学生成绩明细，用于 CSV 导出 */
-    public List<Map<String, Object>> studentScores(long paperId) {
-        return queryMaps("SELECT s.student_id, u.real_name, s.total_score, s.objective_score, "
-                + "s.subjective_score, s.overtime FROM answer_sheet s "
-                + "JOIN sys_user u ON u.id = s.student_id "
-                + "WHERE s.paper_id = ? AND s.status >= 2 ORDER BY s.total_score DESC", paperId);
     }
 }

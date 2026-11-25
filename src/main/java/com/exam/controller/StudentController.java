@@ -1,7 +1,6 @@
 package com.exam.controller;
 
 import com.exam.common.Result;
-import com.exam.config.OpLog;
 import com.exam.entity.AnswerSheet;
 import com.exam.entity.Paper;
 import com.exam.service.ExamService;
@@ -33,7 +32,6 @@ public class StudentController {
     }
 
     /** 开始/继续考试 */
-    @OpLog("进入考试")
     @PostMapping("/papers/{id}/start")
     public Result<Map<String, Object>> start(@PathVariable("id") Long id,
                                              @RequestAttribute("uid") Long uid) {
@@ -56,7 +54,6 @@ public class StudentController {
         return Result.ok();
     }
 
-    @OpLog("交卷")
     @PostMapping("/sheets/{sheetId}/submit")
     public Result<Map<String, Object>> submit(@PathVariable Long sheetId,
                                               @RequestAttribute("uid") Long uid) {

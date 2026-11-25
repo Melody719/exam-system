@@ -105,10 +105,6 @@ public class PaperService {
         });
     }
 
-    public Paper detail(long paperId) {
-        return Tx.call(() -> paperDao.findById(paperId));
-    }
-
     public List<Paper> listByCourse(long courseId) {
         return Tx.call(() -> paperDao.listByCourse(courseId));
     }

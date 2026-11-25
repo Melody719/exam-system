@@ -13,12 +13,11 @@
         .wrap { max-width: 1080px; margin: 20px auto; padding: 0 16px; }
         .card { background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
         .card h3 { margin: 0 0 12px; font-size: 15px; border-left: 3px solid #2d8cf0; padding-left: 8px; }
-        input, select, textarea { font: inherit; padding: 6px 8px; border: 1px solid #d3d9e2; border-radius: 4px; outline: none; }
-        input:focus, select:focus, textarea:focus { border-color: #2d8cf0; }
+        input, select { font: inherit; padding: 6px 8px; border: 1px solid #d3d9e2; border-radius: 4px; outline: none; }
+        input:focus, select:focus { border-color: #2d8cf0; }
         button { font: inherit; padding: 6px 14px; border: none; border-radius: 4px; background: #2d8cf0; color: #fff; cursor: pointer; }
         button.ghost { background: #eef1f6; color: #333; }
         button.danger { background: #ed4014; }
-        button:disabled { opacity: .5; cursor: not-allowed; }
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eef1f6; font-size: 13px; }
         th { color: #666; font-weight: 500; }
@@ -31,22 +30,17 @@
         .q:last-child { border-bottom: none; }
         .q .qh { margin-bottom: 8px; }
         .q em { color: #999; font-style: normal; font-size: 12px; }
-        .opt { display: block; padding: 4px 0; cursor: pointer; }
+        .opt { display: block; padding: 4px 0; cursor: pointer; font-size: 13px; }
         .opt input { margin-right: 6px; }
-        .ans { width: 100%; min-height: 70px; }
         .sticky { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 16px; }
         .timer { font-weight: 600; color: #2d8cf0; }
         .timer.warn { color: #ed4014; }
         .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: #eef1f6; color: #666; }
         .badge.ok { background: #e8f7ee; color: #19a15f; }
         .badge.draft { background: #fff4e5; color: #d97706; }
-        .fixed { position: fixed; right: 16px; bottom: 16px; }
         .toast { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); background: rgba(0,0,0,.8); color: #fff; padding: 10px 18px; border-radius: 6px; z-index: 99; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
-        .modal .box { background: #fff; border-radius: 8px; padding: 20px; width: 640px; max-height: 80vh; overflow: auto; }
         .ok { color: #19a15f; }
         .no { color: #ed4014; }
-        .pending { color: #d97706; }
     </style>
 </head>
 <body>
@@ -70,7 +64,6 @@
         <p class="hint">演示账号：teacher1（教师）/ student1（学生），密码均为 123456</p>
     </div>
 
-    <!-- 主界面 -->
     <div id="mainView" class="hidden">
         <div class="card row">
             <label>课程 <select id="courseSelect" onchange="onCourseChange()"></select></label>
@@ -91,7 +84,7 @@
         <!-- 教师 -->
         <div id="teacherPanel" class="hidden">
             <div class="card">
-                <h3>组卷并发布</h3>
+                <h3>随机组卷</h3>
                 <div class="row">
                     <label>标题 <input id="pTitle" value="Java 期中考试" style="width:180px"></label>
                     <label>时长(分钟) <input id="pDuration" type="number" value="60" style="width:80px"></label>
@@ -102,9 +95,8 @@
                     <label>单选 <input id="n1" type="number" value="1" min="0" style="width:60px"></label>
                     <label>多选 <input id="n2" type="number" value="1" min="0" style="width:60px"></label>
                     <label>判断 <input id="n3" type="number" value="1" min="0" style="width:60px"></label>
-                    <label>主观 <input id="n4" type="number" value="1" min="0" style="width:60px"></label>
-                    <button onclick="createPaper()">随机组卷</button>
-                    <span class="hint">抽题按题型，难度不限；题量不足会直接报错</span>
+                    <button onclick="createPaper()">组卷</button>
+                    <span class="hint">按题型抽题，难度不限；题量不足会直接报错</span>
                 </div>
             </div>
 
@@ -120,13 +112,12 @@
                 <h3>统计 <span id="statTitle" class="hint"></span></h3>
                 <div id="statSummary"></div>
                 <div id="statQuestions" style="margin-top:12px"></div>
-                <div style="margin-top:12px"><button class="ghost" onclick="downloadCsv()">导出 CSV</button></div>
             </div>
 
             <div id="sheetCard" class="card hidden">
                 <h3>答卷 <span id="sheetTitle" class="hint"></span></h3>
                 <table>
-                    <thead><tr><th>答卷ID</th><th>学生ID</th><th>状态</th><th>总分</th><th>交卷时间</th><th>操作</th></tr></thead>
+                    <thead><tr><th>答卷ID</th><th>学生ID</th><th>状态</th><th>总分</th><th>交卷时间</th></tr></thead>
                     <tbody id="sheetBody"></tbody>
                 </table>
             </div>
@@ -153,16 +144,12 @@
             <div style="margin-top:14px"><button class="ghost" onclick="backHome()">返回</button></div>
         </div>
     </div>
-
-    <div id="modal" class="modal hidden">
-        <div class="box" id="modalBox"></div>
-    </div>
 </div>
 
 <script>
     // ---------------- 基础 ----------------
     const S = {token: localStorage.getItem('token') || '', role: '', uid: null,
-               courses: [], sheet: null, answers: {}, paperId: null, statPaperId: null};
+               courses: [], sheet: null, answers: {}};
     let timerId = null, saveTimer = null;
 
     const $ = id => document.getElementById(id);
@@ -268,12 +255,10 @@
     }
 
     function renderQuestions(questions) {
-        const typeName = {1: '单选', 2: '多选', 3: '判断', 4: '主观'};
+        const typeName = {1: '单选', 2: '多选', 3: '判断'};
         $('questionList').innerHTML = questions.map((q, i) => {
             let input;
-            if (q.type === 4) {
-                input = `<textarea class="ans" oninput="onAnswer(${q.questionId}, this.value)">${esc(q.myAnswer)}</textarea>`;
-            } else if (q.type === 2) {
+            if (q.type === 2) {
                 const mine = (q.myAnswer || '').split(',');
                 input = q.options.map(o => `<label class="opt">
                     <input type="checkbox" value="${o.optKey}" data-qid="${q.questionId}"
@@ -305,6 +290,7 @@
         queueSave();
     }
 
+    /** 改动后 0.8 秒防抖暂存，避免每点一次就发一个请求 */
     function queueSave() {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => saveAnswers(false), 800);
@@ -351,11 +337,7 @@
             clearInterval(timerId);
             window.onbeforeunload = null;
             $('answerView').classList.add('hidden');
-            if (r.hasSubjective) {
-                toast(`交卷成功，客观题 ${r.objectiveScore} 分，主观题待老师批改`, 2400);
-            } else {
-                toast(`交卷成功，得分 ${r.totalScore}`, 2000);
-            }
+            toast(`交卷成功，得分 ${r.totalScore}`, 2000);
             openResult(S.sheet.sheetId);
         } catch (e) {
             alert(e.message);
@@ -372,21 +354,15 @@
             $('resultSummary').innerHTML = `
                 <div class="row" style="font-size:15px">
                     <span>总分 <b style="font-size:22px;color:#2d8cf0">${r.totalScore}</b></span>
-                    <span class="hint">客观 ${r.objectiveScore} · 主观 ${r.subjectiveScore}</span>
                     ${r.overtime ? '<span class="badge draft">超时交卷</span>' : ''}
-                    ${r.status === 2 ? '<span class="badge draft">主观题待批改</span>' : '<span class="badge ok">已批改</span>'}
                 </div>`;
 
-            $('resultDetail').innerHTML = r.details.map((d, i) => {
-                const mark = d.isCorrect === 1 ? '<span class="ok">✔ 正确</span>'
-                    : d.isCorrect === 0 ? '<span class="no">✘ 错误</span>'
-                        : '<span class="pending">待批改</span>';
-                return `<div class="q">
-                    <div class="qh"><b>${i + 1}.</b> ${esc(d.content)} <em>(${d.score}/${d.fullScore} 分)</em> ${mark}</div>
-                    <div class="hint">我的答案：${esc(d.myAnswer) || '（未作答）'}</div>
-                    ${d.isCorrect === 0 ? `<div class="hint">正确答案：${esc(d.correctAnswer)}</div>` : ''}
-                </div>`;
-            }).join('');
+            $('resultDetail').innerHTML = r.details.map((d, i) => `<div class="q">
+                <div class="qh"><b>${i + 1}.</b> ${esc(d.content)} <em>(${d.score}/${d.fullScore} 分)</em>
+                    ${d.isCorrect === 1 ? '<span class="ok">✔ 正确</span>' : '<span class="no">✘ 错误</span>'}</div>
+                <div class="hint">我的答案：${esc(d.myAnswer) || '（未作答）'}</div>
+                ${d.isCorrect === 1 ? '' : `<div class="hint">正确答案：${esc(d.correctAnswer)}</div>`}
+            </div>`).join('');
         } catch (e) {
             alert(e.message);
         }
@@ -422,7 +398,7 @@
         if (!start || !end) return alert('请选择考试开始和结束时间');
 
         const rules = [];
-        [[1, 'n1'], [2, 'n2'], [3, 'n3'], [4, 'n4']].forEach(([type, id]) => {
+        [[1, 'n1'], [2, 'n2'], [3, 'n3']].forEach(([type, id]) => {
             const n = parseInt($(id).value || '0', 10);
             if (n > 0) rules.push({type, difficulty: 0, count: n});
         });
@@ -460,7 +436,6 @@
         try {
             const o = await api(`/teacher/papers/${paperId}/stats`);
             const qs = await api(`/teacher/papers/${paperId}/stats/question`);
-            S.statPaperId = paperId;
             $('statCard').classList.remove('hidden');
             $('statTitle').textContent = '· ' + title;
             $('statSummary').innerHTML = `
@@ -490,66 +465,12 @@
             $('sheetTitle').textContent = '· ' + title;
             $('sheetBody').innerHTML = list.length ? list.map(s => `<tr>
                 <td>${s.sheetId}</td><td>${s.studentId}</td>
-                <td>${s.status === 3 ? '已批改' : s.status === 2 ? '待批改' : '作答中'}</td>
+                <td>${s.status === 2 ? '<span class="badge ok">已交卷</span>' : '<span class="badge draft">作答中</span>'}</td>
                 <td>${s.totalScore}</td><td>${fmt(s.submitTime)}</td>
-                <td>${s.status === 2 ? `<button onclick="openGrade(${s.sheetId})">批改</button>` : ''}</td>
-            </tr>`).join('') : '<tr><td colspan="6" class="hint">暂无答卷</td></tr>';
+            </tr>`).join('') : '<tr><td colspan="5" class="hint">暂无答卷</td></tr>';
         } catch (e) {
             alert(e.message);
         }
-    }
-
-    async function openGrade(sheetId) {
-        try {
-            const items = await api(`/teacher/sheets/${sheetId}/subjective`);
-            if (!items.length) return alert('这份答卷没有待批改的主观题');
-            $('modalBox').innerHTML = `<h3>批改答卷 #${sheetId}</h3>
-                ${items.map(it => `<div class="q">
-                    <div class="qh"><b>${esc(it.content)}</b> <em>(满分 ${it.fullScore})</em></div>
-                    <div class="hint">参考答案：${esc(it.reference)}</div>
-                    <div style="margin:6px 0;padding:8px;background:#f7f9fc;border-radius:4px">${esc(it.studentAnswer) || '（未作答）'}</div>
-                    <label>给分 <input type="number" min="0" max="${it.fullScore}"
-                        value="${it.fullScore}" data-qid="${it.questionId}" style="width:80px"></label>
-                </div>`).join('')}
-                <div class="row" style="margin-top:14px">
-                    <button onclick="submitGrade(${sheetId})">提交批改</button>
-                    <button class="ghost" onclick="closeModal()">取消</button>
-                </div>`;
-            $('modal').classList.remove('hidden');
-        } catch (e) {
-            alert(e.message);
-        }
-    }
-
-    async function submitGrade(sheetId) {
-        const scores = {};
-        document.querySelectorAll('#modalBox input[data-qid]').forEach(i => {
-            scores[i.dataset.qid] = +i.value;
-        });
-        try {
-            const r = await api(`/teacher/sheets/${sheetId}/grade`, 'POST', scores);
-            closeModal();
-            toast(`批改完成，总分 ${r.totalScore}`);
-            loadPapers();
-        } catch (e) {
-            alert(e.message);
-        }
-    }
-
-    function closeModal() {
-        $('modal').classList.add('hidden');
-    }
-
-    async function downloadCsv() {
-        if (!S.statPaperId) return;
-        const res = await fetch(`/api/teacher/papers/${S.statPaperId}/stats.csv`,
-            {headers: {'Authorization': S.token}});
-        const blob = await res.blob();
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `paper-${S.statPaperId}.csv`;
-        a.click();
-        URL.revokeObjectURL(a.href);
     }
 
     // ---------------- 启动 ----------------

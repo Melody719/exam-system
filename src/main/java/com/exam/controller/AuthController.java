@@ -1,7 +1,6 @@
 package com.exam.controller;
 
 import com.exam.common.Result;
-import com.exam.config.OpLog;
 import com.exam.service.AuthService;
 import com.exam.util.JwtUtil;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,7 +29,6 @@ public class AuthController {
         return Result.ok();
     }
 
-    @OpLog("登录")
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody Map<String, String> body) {
         String token = authService.login(body.get("username"), body.get("password"));

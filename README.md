@@ -11,8 +11,8 @@ SpringBoot 2.7 + MySQL 8 + 自封装 JDBC DAO，无 ORM、无连接池。
 | 持久层 | JDBC + 自封装 `BaseDao`（泛型 + 反射映射 + `PreparedStatement`） |
 | 事务  | `ThreadLocal` 绑定 Connection，Service 层统一提交/回滚          |
 | 鉴权  | 手写 HMAC-SHA256 JWT + 拦截器按角色做接口级授权                     |
-| 数据库 | MySQL 8（8 张业务表 + 1 张操作日志表）                            |
-| 其他  | AOP 操作日志、`@Scheduled` 定时收卷、CSV 导出                     |
+| 数据库 | MySQL 8（8 张表）                                          |
+| 其他  | `@Scheduled` 定时收卷、全局异常处理、统一响应体                     |
 
 ## 2. 快速启动
 
@@ -46,33 +46,33 @@ mvn spring-boot:run
 1. 课程下拉选「Java 程序设计」；
 2. 「组卷并发布」填标题、时长、考试时间窗，各题型填数量 → 随机组卷（题量不足会直接报错）；
 3. 试卷列表里点「发布」，学生端立刻能看到这场考试；
-4. 学生交卷后，点「统计」看平均分 / 及格率 / 每题正确率、导出 CSV；点「答卷」进待批改列表给主观题打分。
+4. 学生交卷后，点「统计」看平均分 / 及格率 / 每题正确率，点「答卷」看每个人的交卷情况。
 
 **学生侧**（用 `student1` 登录）：
 
 1. 选课程 → 考试列表点「进入考试」；
 2. 作答页顶部是服务端下发的剩余时间（前端倒计时只做展示，刷新不重置）；每题改动 0.8 秒后自动暂存；
-3. 点「交卷」→ 客观题立刻出分，主观题显示「待批改」；或时间到自动交卷；
+3. 点「交卷」→ 立刻出分；或时间到自动交卷；
 4. 「成绩」页看总分、每题对错和正确答案。
 
 > 交卷后再点「进入考试」不会重开卷，只会跳到成绩页——这是 `(paper_id, student_id)` 唯一索引 + 状态机在兜底
 
-## 3. 目构
+## 3. 目录结构
 
 ```
 src/main/java/com/exam
 ├── common/      Result、BizException、全局异常处理
-├── config/      JwtInterceptor、WebConfig、@OpLog 注解与切面
+├── config/      JwtInterceptor、WebConfig
 ├── dao/         DbConfig、Tx（事务）、BaseDao（泛型反射映射）、各表 DAO
 ├── dto/         QuestionReq、PaperCreateReq
 ├── entity/      8 张表对应实体
-├── service/     Auth / Question / Paper / Exam / Grade / Stat
+├── service/     Auth / Question / Paper / Exam / Stat
 ├── util/        JwtUtil
 └── controller/  Auth / Common / Teacher / Student
 
 src/main/resources
 ├── application.yml
-└── static/index.html   单页前端（原生 JS，登录/组卷/答题/批改/统计）
+└── static/index.html   单页前端（原生 JS，登录/组卷/答题/统计）
 ```
 
 ## 4. 数据库设计（8 张业务表）
@@ -87,8 +87,6 @@ src/main/resources
 | `paper_question`  | 试卷题目，组卷时落库锁题                    | `uk_paper_question`                                                     |
 | `answer_sheet`    | 答卷（一份考试一个学生一条）                  | `uk_paper_student`、`idx_paper_status`、`idx_student_time`、`idx_deadline` |
 | `answer_detail`   | 答题明细，兼做暂存区                      | `uk_sheet_question`                                                     |
-
-> `op_log` 是 AOP 写入的操作日志表，不算业务表。
 
 ## 5. 关键设计
 
@@ -105,7 +103,7 @@ src/main/resources
 Tx.exec(() -> {
     sheetDao.markSubmitted(...);   // 改答卷状态
     detailDao.upsert(...);         // 写明细
-    sheetDao.updateScore(...);     // 更新成绩
+    sheetDao.finish(...);          // 更新成绩
 });                                // 成功 commit，异常 rollback
 ```
 
@@ -128,15 +126,13 @@ Tx.exec(() -> {
 
 ### 5.5 自动判分
 
-- 客观题：答案归一化（去空格/逗号、转大写、多选按字符排序）后比对，支持 `A,C` 与 `C,A` 等价。
-- 主观题：明细记 `is_correct = -1` 进待批改队列，教师逐题给分（超过满分自动截断），重算 `总分 = 客观分 + 主观分`。
+- 按选项比对：答案归一化（去空格/逗号、转大写、多选按字符排序）后比对，支持 `A,C` 与 `C,A` 等价。
 - 交卷时会把**未作答的题**也补一条明细，保证「每题正确率」的分母正确。
 
 ### 5.6 统计
 
 - 概览：`COUNT / AVG / MAX / MIN` + `SUM(CASE WHEN total_score >= 及格线 ...)`，及格线取满分的 60%。
 - 每题正确率：`answer_detail` 关联 `answer_sheet` 后 `GROUP BY question_id`。
-- 导出 CSV 带 UTF-8 BOM，Excel 打开不乱码。
 
 ### 5.7 防重复与并发
 
@@ -163,15 +159,10 @@ Tx.exec(() -> {
 | GET  | `/api/teacher/questions?courseId=`         | 题库列表               |
 | POST | `/api/teacher/papers`                      | 组卷（FIXED / RANDOM） |
 | POST | `/api/teacher/papers/{id}/publish`         | 发布考试               |
-| GET  | `/api/teacher/papers/{id}`                 | 试卷详情               |
 | GET  | `/api/teacher/papers?courseId=`            | 该课程的试卷列表（前端列表用）    |
 | GET  | `/api/teacher/papers/{id}/sheets`          | 答卷列表               |
-| GET  | `/api/teacher/papers/{id}/pending`         | 待批改列表              |
-| GET  | `/api/teacher/sheets/{sheetId}/subjective` | 主观题作答              |
-| POST | `/api/teacher/sheets/{sheetId}/grade`      | 批改，body `{"5":12}` |
 | GET  | `/api/teacher/papers/{id}/stats`           | 班级概览               |
 | GET  | `/api/teacher/papers/{id}/stats/question`  | 每题正确率              |
-| GET  | `/api/teacher/papers/{id}/stats.csv`       | 导出 CSV             |
 
 ### 学生端
 

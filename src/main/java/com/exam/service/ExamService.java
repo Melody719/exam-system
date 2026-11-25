@@ -4,7 +4,6 @@ import com.exam.common.BizException;
 import com.exam.dao.DetailDao;
 import com.exam.dao.OptionDao;
 import com.exam.dao.PaperDao;
-import com.exam.dao.PaperQuestionDao;
 import com.exam.dao.QuestionDao;
 import com.exam.dao.SheetDao;
 import com.exam.dao.Tx;
@@ -40,7 +39,6 @@ public class ExamService {
     private final DetailDao detailDao = new DetailDao();
     private final QuestionDao questionDao = new QuestionDao();
     private final OptionDao optionDao = new OptionDao();
-    private final PaperQuestionDao paperQuestionDao = new PaperQuestionDao();
 
     /** 学生端：可参加的考试 */
     public List<Paper> listAvailablePapers(long courseId) {
@@ -106,9 +104,12 @@ public class ExamService {
             List<Long> qids = questions.stream().map(Question::getId).collect(Collectors.toList());
             Map<Long, List<QuestionOption>> optMap = optionDao.listByQuestionIds(qids).stream()
                     .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
-            Map<Long, String> answered = detailDao.listBySheet(sheetId).stream()
-                    .filter(d -> d.getStudentAnswer() != null)
-                    .collect(Collectors.toMap(AnswerDetail::getQuestionId, AnswerDetail::getStudentAnswer, (a, b) -> a));
+            Map<Long, String> answered = new HashMap<>();
+            for (AnswerDetail d : detailDao.listBySheet(sheetId)) {
+                if (d.getStudentAnswer() != null) {
+                    answered.put(d.getQuestionId(), d.getStudentAnswer());
+                }
+            }
 
             List<Map<String, Object>> items = new ArrayList<>();
             for (Question q : questions) {
@@ -159,9 +160,7 @@ public class ExamService {
             m.put("sheetId", fresh.getId());
             m.put("status", fresh.getStatus());
             m.put("overtime", fresh.getOvertime() == 1);
-            m.put("objectiveScore", fresh.getObjectiveScore());
             m.put("totalScore", fresh.getTotalScore());
-            m.put("hasSubjective", hasSubjective(fresh.getPaperId()));
             return m;
         });
     }
@@ -176,32 +175,26 @@ public class ExamService {
         if (sheetDao.markSubmitted(s.getId(), now, overtime) == 0) {
             return false;
         }
-        int objective = autoGrade(s.getId(), s.getPaperId());
-        // 有主观题则 status 仍是 2（待批改），主观分由教师补
-        sheetDao.updateScore(s.getId(), objective, 0, objective, 2);
+        sheetDao.finish(s.getId(), autoGrade(s.getId(), s.getPaperId()));
         return true;
     }
 
     /** 客观题自动判分，并把每一题的结果补写进明细（含未作答的题） */
     private int autoGrade(long sheetId, long paperId) {
-        Map<Long, String> answered = detailDao.listBySheet(sheetId).stream()
-                .collect(Collectors.toMap(AnswerDetail::getQuestionId,
-                        d -> d.getStudentAnswer() == null ? "" : d.getStudentAnswer(), (a, b) -> a));
+        Map<Long, String> answered = new HashMap<>();
+        for (AnswerDetail d : detailDao.listBySheet(sheetId)) {
+            answered.put(d.getQuestionId(), d.getStudentAnswer() == null ? "" : d.getStudentAnswer());
+        }
 
-        int objective = 0;
+        int total = 0;
         for (Question q : questionDao.listByPaper(paperId)) {
             String ans = answered.getOrDefault(q.getId(), "");
-            if (q.getType() == 4) {
-                // 主观题：标记 -1 等待教师批改
-                detailDao.upsert(sheetId, q.getId(), ans, -1, 0);
-                continue;
-            }
             boolean right = !ans.isEmpty() && normalize(q.getAnswer()).equals(normalize(ans));
             int score = right ? q.getScore() : 0;
-            objective += score;
+            total += score;
             detailDao.upsert(sheetId, q.getId(), ans, right ? 1 : 0, score);
         }
-        return objective;
+        return total;
     }
 
     /** 兜底收卷：每 30 秒扫一次过期未交的答卷 */
@@ -250,8 +243,6 @@ public class ExamService {
             m.put("sheetId", sheetId);
             m.put("status", s.getStatus());
             m.put("overtime", s.getOvertime() == 1);
-            m.put("objectiveScore", s.getObjectiveScore());
-            m.put("subjectiveScore", s.getSubjectiveScore());
             m.put("totalScore", s.getTotalScore());
             m.put("details", items);
             return m;
@@ -262,16 +253,13 @@ public class ExamService {
         return Tx.call(() -> sheetDao.listByStudent(studentId));
     }
 
-    AnswerSheet requireSheet(long sheetId, long studentId) {
+    /** 水平越权防线：答卷必须属于当前登录学生 */
+    private AnswerSheet requireSheet(long sheetId, long studentId) {
         AnswerSheet s = sheetDao.findById(sheetId);
         if (s == null || !s.getStudentId().equals(studentId)) {
             throw new BizException("答卷不存在");
         }
         return s;
-    }
-
-    private boolean hasSubjective(long paperId) {
-        return questionDao.listByPaper(paperId).stream().anyMatch(q -> q.getType() == 4);
     }
 
     /** 答案归一化：去空格与分隔符、转大写、多选按字符排序（A,C 与 C,A 等价） */

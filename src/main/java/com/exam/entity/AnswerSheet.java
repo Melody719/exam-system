@@ -12,9 +12,7 @@ public class AnswerSheet {
     private LocalDateTime startTime;
     private LocalDateTime deadline;
     private LocalDateTime submitTime;
-    private Integer status;            // 1作答中 2已交卷 3已批改
-    private Integer overtime;
-    private Integer objectiveScore;
-    private Integer subjectiveScore;
+    private Integer status;            // 1作答中 2已交卷
+    private Integer overtime;          // 1 表示超时交卷
     private Integer totalScore;
 }

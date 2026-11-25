@@ -28,11 +28,11 @@ CREATE TABLE course (
 CREATE TABLE question (
     id              BIGINT PRIMARY KEY AUTO_INCREMENT,
     course_id       BIGINT       NOT NULL,
-    type            TINYINT      NOT NULL COMMENT '1单选 2多选 3判断 4主观',
+    type            TINYINT      NOT NULL COMMENT '1单选 2多选 3判断',
     difficulty      TINYINT      NOT NULL COMMENT '1易 2中 3难',
     knowledge_point VARCHAR(50)  NOT NULL,
     content         VARCHAR(500) NOT NULL,
-    answer          VARCHAR(200) NOT NULL COMMENT '客观题存选项键如 A 或 A,C；主观题为参考答案',
+    answer          VARCHAR(200) NOT NULL COMMENT '选项键，如 A 或 A,C',
     score           INT          NOT NULL,
     KEY idx_course_type (course_id, type, difficulty)
 );
@@ -71,17 +71,15 @@ CREATE TABLE paper_question (
 
 -- 7. 答卷
 CREATE TABLE answer_sheet (
-    id               BIGINT PRIMARY KEY AUTO_INCREMENT,
-    paper_id         BIGINT   NOT NULL,
-    student_id       BIGINT   NOT NULL,
-    start_time       DATETIME NOT NULL,
-    deadline         DATETIME NOT NULL COMMENT '服务端计算的截止时间',
-    submit_time      DATETIME NULL,
-    status           TINYINT  NOT NULL DEFAULT 1 COMMENT '1作答中 2已交卷 3已批改',
-    overtime         TINYINT  NOT NULL DEFAULT 0 COMMENT '是否超时交卷',
-    objective_score  INT      NOT NULL DEFAULT 0,
-    subjective_score INT      NOT NULL DEFAULT 0,
-    total_score      INT      NOT NULL DEFAULT 0,
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    paper_id    BIGINT   NOT NULL,
+    student_id  BIGINT   NOT NULL,
+    start_time  DATETIME NOT NULL,
+    deadline    DATETIME NOT NULL COMMENT '服务端计算的截止时间',
+    submit_time DATETIME NULL,
+    status      TINYINT  NOT NULL DEFAULT 1 COMMENT '1作答中 2已交卷',
+    overtime    TINYINT  NOT NULL DEFAULT 0 COMMENT '是否超时交卷',
+    total_score INT      NOT NULL DEFAULT 0,
     -- 同一场考试一个学生只能有一份成绩
     UNIQUE KEY uk_paper_student (paper_id, student_id),
     KEY idx_paper_status (paper_id, status),
@@ -95,20 +93,7 @@ CREATE TABLE answer_detail (
     sheet_id       BIGINT       NOT NULL,
     question_id    BIGINT       NOT NULL,
     student_answer VARCHAR(200) NULL,
-    is_correct     TINYINT      NULL COMMENT '1对 0错 -1主观待批改',
+    is_correct     TINYINT      NULL COMMENT '1对 0错 NULL未作答',
     score          INT          NOT NULL DEFAULT 0,
     UNIQUE KEY uk_sheet_question (sheet_id, question_id)
 );
-
--- 附：操作日志（登录/交卷/批改等关键动作，由 AOP 写入）
-CREATE TABLE op_log (
-    id       BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id  BIGINT       NULL,
-    action   VARCHAR(50)  NOT NULL,
-    method   VARCHAR(100) NOT NULL,
-    cost_ms  INT          NOT NULL,
-    success  TINYINT      NOT NULL,
-    create_time DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_user_time (user_id, create_time)
-);
-
